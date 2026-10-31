@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "homeassistant": {
+      "type": "http",
+      "url": "http://<home-assistant-host>:8123/api/mcp",
+      "headers": {
+        "Authorization": "Bearer <long-lived token for a dedicated HA user>"
+      }
+    }
+  }
+}

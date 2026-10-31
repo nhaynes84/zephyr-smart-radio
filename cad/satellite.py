@@ -80,11 +80,12 @@ MEASURED / VERIFIED INPUTS
       under the louvres -- pocket to come once it is measured. Feeds the
       dual USB-C buck screwed to the foot panel (CONV_*, from the listing).
 
-Output: ~/Collab/CAD/voice-satellite/voice_satellite.step (+ .stl)
-        ~/Collab/CAD/voice-satellite/print/<part>.stl  (print-oriented)
+Output: $ZEPHYR_CAD_OUT, ~/Collab/CAD/voice-satellite if present, else cad/out/:
+        voice_satellite.step (+ .stl), print/<part>.stl (print-oriented)
 """
 
 import math
+import os
 from pathlib import Path
 
 from build123d import (
@@ -93,7 +94,8 @@ from build123d import (
     Rotation, Sphere, add, export_step, export_stl, extrude, fillet, loft,
 )
 
-OUT = Path("/Users/talos/Collab/CAD/voice-satellite")
+_COLLAB = Path.home() / "Collab/CAD/voice-satellite"      # the author's print folder, when present
+OUT = Path(os.environ.get("ZEPHYR_CAD_OUT") or (_COLLAB if _COLLAB.is_dir() else Path(__file__).parent / "out"))
 OUT.mkdir(parents=True, exist_ok=True)
 
 IVORY = Color(0.93, 0.89, 0.80)

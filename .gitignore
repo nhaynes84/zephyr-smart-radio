@@ -3,6 +3,13 @@ esphome/secrets.yaml
 agent/.mcp.json
 *.env
 
+# personal: the real agent rules name the house's rooms and people (CLAUDE.example.md is public)
+agent/CLAUDE.md
+
+# vendor models and datasheets: not ours to redistribute (see cad/README.md for sources)
+cad/ref/
+cad/out/
+
 # build output and caches
 esphome/.esphome/
 __pycache__/

@@ -8,7 +8,7 @@
 set -eu
 HOST=${1:-root@192.168.86.62}
 HERE=$(cd "$(dirname "$0")" && pwd)
-GLR=${GLR:-/private/tmp/claude-501/-Users-talos-Projects-roam--claude-worktrees-nexus-voice/34c9a4c9-8be6-4cfe-8f13-e1872335b3da/scratchpad/glr/go-librespot}
+GLR=${GLR:-}                     # optional go-librespot binary (unused: see README)
 SSH="ssh -o BatchMode=yes -o ConnectTimeout=8 $HOST"
 
 cd "$HERE"
