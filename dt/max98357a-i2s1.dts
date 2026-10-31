@@ -1,0 +1,61 @@
+// Orange Pi 3B: MAX98357A I2S amp on the 40-pin header -> PC83.
+//
+//   amp VIN  -> pin 2 (5 V)      amp BCLK -> pin 12 (GPIO3_C7, I2S1_SCLK_TX_M1)
+//   amp GND  -> pin 6            amp LRC  -> pin 35 (GPIO3_D0, I2S1_LRCK_TX_M1)
+//                                amp DIN  -> pin 40 (GPIO3_D1, I2S1_SDO0_M1)
+//
+// I2S1 is the RK809's controller, routed to it over the internal M0 pins; the
+// GRF picks ONE of M0/M1, so the amp takes I2S1 over and the RK809 card (the
+// headphone jack, unused in the cabinet) is switched off. The vendor kernel
+// has no MAX98357A driver; the amp needs no setup, so Rockchip's dummy codec
+// stands in for it.
+//
+// Applied at boot as a user overlay (armbianEnv: user_overlays=max98357a-i2s1).
+//   dtc -@ -I dts -O dtb -o max98357a-i2s1.dtbo max98357a-i2s1.dts
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "rockchip,rk3566";
+
+	fragment@0 {
+		target-path = "/rk809-sound";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@1 {
+		target = <&i2s1_8ch>;
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2s1m1_sclktx &i2s1m1_lrcktx &i2s1m1_sdo0>;
+			rockchip,clk-trcm = <1>;
+		};
+	};
+
+	fragment@2 {
+		target-path = "/";
+		__overlay__ {
+			amp_codec: max98357a {
+				compatible = "rockchip,dummy-codec";
+				#sound-dai-cells = <0>;
+			};
+
+			max98357a-sound {
+				compatible = "simple-audio-card";
+				simple-audio-card,name = "max98357a";
+				simple-audio-card,format = "i2s";
+				simple-audio-card,mclk-fs = <256>;
+
+				simple-audio-card,cpu {
+					sound-dai = <&i2s1_8ch>;
+				};
+				simple-audio-card,codec {
+					sound-dai = <&amp_codec>;
+				};
+			};
+		};
+	};
+};

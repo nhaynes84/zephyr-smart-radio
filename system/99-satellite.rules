@@ -1,0 +1,2 @@
+# satd (user sat, group i2c) drives the panel backlight MCU on the DSI ribbon's I2C.
+SUBSYSTEM=="i2c-dev", KERNEL=="i2c-1", GROUP="i2c", MODE="0660"

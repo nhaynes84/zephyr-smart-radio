@@ -1,0 +1,19 @@
+[Unit]
+Description=Satellite local service (UI + Spotify/radio/weather/timers/HA API)
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+User=sat
+Group=sat
+SupplementaryGroups=audio i2c
+Environment=SATD_UI=/opt/satellite/ui
+Environment=SATD_STATE=/var/lib/satd
+RuntimeDirectory=satd
+StateDirectory=satd
+ExecStart=/usr/bin/python3 /opt/satellite/satd/satd.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

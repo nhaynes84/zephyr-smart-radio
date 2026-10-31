@@ -1,0 +1,43 @@
+[Unit]
+Description=Satellite kiosk (cage + Chromium on tty1)
+After=systemd-user-sessions.service satd.service gt9271-touch.service
+Wants=satd.service
+Conflicts=getty@tty1.service
+
+[Service]
+User=sat
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UtmpMode=user
+# DevTools protocol on LOOPBACK ONLY (it has no auth): satd and the UI page
+# (its own origin only) drive a background Audible tab through it -- the UI's
+# "remote view" shows that tab and types into it. Never bind it to a LAN
+# address. Background tabs keep running (no timer throttling) so audio plays.
+# cage draws its own pointer and can't be told not to; this theme's every cursor
+# is one transparent pixel (make-invisible-cursor.py, installed by deploy.sh).
+Environment=XCURSOR_PATH=/home/sat/.icons
+Environment=XCURSOR_THEME=invisible
+Environment=XCURSOR_SIZE=24
+# Bounded wait for satd so the first paint is the UI, not an error page.
+ExecStartPre=/bin/sh -c 'for i in $(seq 40); do curl -sf -o /dev/null http://127.0.0.1:8080/ && exit 0; sleep 0.5; done; exit 0'
+ExecStart=/usr/bin/cage -d -s -- /usr/bin/chromium --kiosk --ozone-platform=wayland \
+  --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble \
+  --disable-features=Translate,TranslateUI,MediaRouter --overscroll-history-navigation=0 \
+  --disable-pinch --touch-events=enabled --password-store=basic --check-for-update-interval=31536000 \
+  --autoplay-policy=no-user-gesture-required --user-data-dir=/home/sat/.cache/kiosk-chromium \
+  --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 \
+  --remote-allow-origins=http://127.0.0.1:8080 \
+  --disable-background-timer-throttling --disable-renderer-backgrounding \
+  --window-size=800,800 http://127.0.0.1:8080/
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=graphical.target

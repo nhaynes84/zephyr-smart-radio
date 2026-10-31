@@ -1,0 +1,35 @@
+#!/bin/sh
+# initramfs-tools init-top hook: kernel-log flight recorder for boot hangs.
+#
+# Only active when "flightrec" is on the kernel command line. Mounts the eMMC's
+# rootfs with -o sync and streams /dev/kmsg into /root/kmsg-boot.txt on it --
+# one long-lived cat, so it keeps recording after switch_root without exec'ing
+# anything from the (freed) initramfs. Every write is synchronous, so if the
+# kernel wedges, the file holds everything up to the wedge; read it from the
+# eMMC system afterwards.
+PREREQ=""
+prereqs() { echo "$PREREQ"; }
+case "$1" in prereqs) prereqs; exit 0 ;; esac
+
+echo "hook ran $(cat /proc/uptime)" > /run/flightrec.log
+# Shell-only: the initramfs busybox has no grep.
+case " $(cat /proc/cmdline) " in *" flightrec "*) ;; *) exit 0 ;; esac
+echo "cmdline ok" >> /run/flightrec.log
+
+# Writes to the eMMC (mmcblk0p1), which an SD boot never mounts -- mounting the
+# SD root here rw collides with the initramfs's own ro root mount (EBUSY) and
+# stalls boot. The mmc controller is a module that udev (later in init-top)
+# loads, so the device appears ~13 s in. Wait for it in the background and let boot go on.
+DEV=/dev/mmcblk0p1
+(
+	i=0
+	while [ ! -b "$DEV" ] && [ $i -lt 60 ]; do sleep 1; i=$((i + 1)); done
+	echo "wait done i=$i $(cat /proc/uptime)" >> /run/flightrec.log
+	[ -b "$DEV" ] || exit 0
+	mkdir -p /fr
+	mount -t ext4 -o rw,sync "$DEV" /fr >> /run/flightrec.log 2>&1 || { echo "mount failed" >> /run/flightrec.log; exit 0; }
+	echo "mounted" >> /run/flightrec.log
+	echo "flightrec: started $(cat /proc/uptime)" > /fr/root/kmsg-boot.txt
+	exec cat /dev/kmsg >> /fr/root/kmsg-boot.txt
+) </dev/null >>/run/flightrec.log 2>&1 &
+exit 0

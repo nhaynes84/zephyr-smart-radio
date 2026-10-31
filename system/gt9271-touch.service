@@ -1,0 +1,12 @@
+[Unit]
+Description=Waveshare 3.4" touch (GT9271 polled over I2C -> uinput)
+After=systemd-udevd.service ws-panel.service
+
+[Service]
+ExecStartPre=/sbin/modprobe uinput
+ExecStart=/usr/bin/python3 /opt/satellite/touch/gt9271-touch.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

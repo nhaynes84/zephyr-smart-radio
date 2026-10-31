@@ -1,0 +1,290 @@
+/* Round 800x800 face. Two-tone 50s palette: ivory + tropical turquoise, matador red accent. */
+:root {
+  --ink: #0e1213;
+  --face: #161b1d;
+  --face-2: #1d2427;
+  --band: #20393a;
+  --turq: #45b5aa;
+  --turq-dim: #2c6f69;
+  --ivory: #f1e7cf;
+  --ivory-dim: #b9b09b;
+  --red: #d2553f;
+  --amber: #e8b04b;
+  --ring-in: 296px;   /* inner edge of the app ring band (radius) */
+  --ring-out: 396px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+
+html, body {
+  margin: 0; width: 800px; height: 800px; overflow: hidden;
+  background: #000; color: var(--ivory);
+  font-family: Inter, "Noto Sans", system-ui, sans-serif;
+  cursor: none;
+}
+
+#face {
+  position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 38%, #1c2326 0%, var(--face) 55%, var(--ink) 100%);
+}
+
+/* ---------------------------------------------------------------- ring */
+#ring { position: absolute; inset: 0; }
+#ring svg.dial { position: absolute; inset: 0; }
+
+.app-btn {
+  position: absolute; width: 76px; height: 76px; margin: -38px 0 0 -38px;
+  border-radius: 50%; border: 0; padding: 0;
+  display: grid; place-items: center;
+  background: transparent; color: var(--ivory-dim);
+  transition: color .2s, background .2s, transform .15s;
+}
+.app-btn svg { width: 40px; height: 40px; }
+.app-btn.active { background: var(--ivory); color: var(--band); box-shadow: 0 0 0 3px var(--turq), 0 4px 18px #0008; }
+.app-btn:active { transform: scale(.92); }
+.app-btn .badge {
+  position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--turq); box-shadow: 0 0 0 2px var(--band); display: none;
+}
+.app-btn.live .badge { display: block; }
+.app-btn.active .badge { box-shadow: 0 0 0 2px var(--ivory); }
+
+/* ---------------------------------------------------------------- centre */
+#center {
+  position: absolute; left: 400px; top: 400px;
+  width: 580px; height: 580px; margin: -290px 0 0 -290px; border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, var(--face-2), var(--face) 70%);
+  box-shadow: inset 0 0 0 1px #ffffff10, inset 0 8px 30px #0006;
+}
+.view { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.view.shown { display: flex; animation: fadein .25s ease; }
+@keyframes fadein { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+
+.label { font-size: 15px; letter-spacing: .18em; text-transform: uppercase; color: var(--turq); font-weight: 600; }
+.muted { color: var(--ivory-dim); }
+.big { font-weight: 200; letter-spacing: -.02em; }
+
+button.pill {
+  border: 0; border-radius: 999px; padding: 12px 22px; font: 600 18px Inter, sans-serif;
+  background: var(--band); color: var(--ivory); min-height: 52px;
+}
+button.pill.on { background: var(--turq); color: var(--ink); }
+button.pill.warn { background: var(--red); color: var(--ivory); }
+button.pill:active { filter: brightness(1.3); }
+
+button.round {
+  width: 72px; height: 72px; border-radius: 50%; border: 0; display: grid; place-items: center;
+  background: var(--band); color: var(--ivory);
+}
+button.round.primary { width: 96px; height: 96px; background: var(--ivory); color: var(--ink); }
+button.round svg { width: 34px; height: 34px; }
+button.round.primary svg { width: 44px; height: 44px; }
+button.round:active { filter: brightness(1.3); transform: scale(.95); }
+
+/* scroll lists that live inside the circle */
+.list {
+  width: 400px; max-height: 330px; overflow-y: auto; scrollbar-width: none;
+  display: flex; flex-direction: column; gap: 8px; padding: 6px 0 40px;
+  mask-image: linear-gradient(transparent, #000 24px, #000 calc(100% - 48px), transparent);
+  touch-action: pan-y;
+}
+.list::-webkit-scrollbar { display: none; }
+.row {
+  display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-radius: 16px;
+  background: var(--face-2); text-align: left; min-height: 60px; border: 0; color: inherit; font: inherit; width: 100%;
+}
+.row:active { background: var(--band); }
+.row img, .row .thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex: none; background: var(--band); }
+.row .t { flex: 1; min-width: 0; }
+.row .t b { display: block; font-weight: 600; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .t span { display: block; font-size: 14px; color: var(--ivory-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row.on { background: var(--turq-dim); }
+
+.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 420px; }
+.chips button { border: 0; border-radius: 999px; padding: 9px 16px; font: 600 15px Inter, sans-serif; background: var(--band); color: var(--ivory); }
+.chips button.on { background: var(--turq); color: var(--ink); }
+
+/* ---------------------------------------------------------------- home */
+#v-home .time { font-size: 136px; line-height: 1; font-weight: 200; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+#v-home .time small { font-size: 30px; font-weight: 400; letter-spacing: 0; margin-left: 6px; color: var(--ivory-dim); }
+#v-home .date { font-size: 24px; margin-top: 8px; color: var(--ivory-dim); }
+#v-home .wx { display: flex; align-items: center; gap: 16px; margin-top: 26px; }
+#v-home .wx .ico { font-size: 54px; line-height: 1; }
+#v-home .wx .temp { font-size: 54px; font-weight: 300; }
+#v-home .wx .desc { text-align: left; font-size: 17px; line-height: 1.35; }
+#v-home .strip { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; align-items: center; min-height: 40px; }
+#v-home .chip { border: 0; border-radius: 999px; padding: 8px 16px; font: 500 16px Inter, sans-serif; background: var(--band); color: var(--ivory); max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#v-home .chip.ring { background: var(--red); }
+
+/* ---------------------------------------------------------------- spotify */
+#v-spotify .art, #v-audible .art {
+  width: 230px; height: 230px; border-radius: 50%; object-fit: cover;
+  box-shadow: 0 0 0 6px var(--face-2), 0 0 0 7px #ffffff14, 0 10px 40px #000a;
+  background: var(--band);
+}
+#v-spotify .art.spin, #v-audible .art.spin { animation: spin 18s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#v-spotify .track, #v-audible .track { margin-top: 18px; font-size: 22px; font-weight: 600; max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#v-spotify .artist, #v-audible .artist { font-size: 17px; color: var(--ivory-dim); max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#v-spotify .controls, #v-audible .controls { display: flex; align-items: center; gap: 22px; margin-top: 16px; }
+.progress { position: absolute; inset: 0; pointer-events: none; transform: rotate(-90deg); }
+.progress circle { fill: none; stroke-width: 8; stroke-linecap: round; }
+.progress .track-bg { stroke: #ffffff10; }
+.progress .fill { stroke: var(--turq); transition: stroke-dashoffset 1s linear; }
+.back-head {
+  display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 999px;
+  padding: 10px 20px 10px 12px; min-height: 48px; background: var(--face-2); color: var(--turq);
+  font: 600 15px Inter, sans-serif; letter-spacing: .18em; text-transform: uppercase;
+}
+.back-head svg { width: 22px; height: 22px; }
+.back-head:active { background: var(--band); }
+.corner-btn { position: absolute; z-index: 2; border: 0; background: transparent; color: var(--ivory-dim); display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; }
+.corner-btn svg { width: 30px; height: 30px; }
+.corner-btn:active { background: var(--band); }
+.vol { display: flex; align-items: center; gap: 10px; margin-top: 12px; font: 600 15px Inter, sans-serif; color: var(--ivory-dim); }
+.vol button { width: 52px; height: 44px; border: 0; border-radius: 22px; background: var(--band); color: var(--ivory); font: 600 22px Inter, sans-serif; }
+
+.pair .code { font-size: 54px; font-weight: 300; letter-spacing: .12em; margin: 10px 0; color: var(--ivory); }
+
+/* ---------------------------------------------------------------- radio */
+#v-radio .dialwin {
+  width: 380px; height: 70px; border-radius: 14px; position: relative; overflow: hidden;
+  background: linear-gradient(#f3e9cf, #dccfac); box-shadow: inset 0 2px 8px #0006; margin: 12px 0 18px;
+}
+#v-radio .dialwin .ticks { position: absolute; inset: 10px 14px; background: repeating-linear-gradient(90deg, #3a3326 0 2px, transparent 2px 19px); opacity: .55; }
+#v-radio .dialwin .needle { position: absolute; top: 6px; bottom: 6px; width: 4px; border-radius: 2px; background: var(--red); left: 50%; transition: left 1.2s cubic-bezier(.3,1.4,.5,1); }
+#v-radio .station { font-size: 24px; font-weight: 600; max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#v-radio .now { font-size: 17px; color: var(--ivory-dim); max-width: 400px; min-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
+#v-radio .eq { display: flex; gap: 4px; height: 26px; align-items: flex-end; margin-top: 12px; }
+#v-radio .eq i { width: 6px; background: var(--turq); border-radius: 3px; animation: eq 1s ease-in-out infinite; }
+#v-radio .eq i:nth-child(2) { animation-delay: -.4s; } #v-radio .eq i:nth-child(3) { animation-delay: -.7s; } #v-radio .eq i:nth-child(4) { animation-delay: -.2s; } #v-radio .eq i:nth-child(5) { animation-delay: -.55s; }
+@keyframes eq { 0%,100% { height: 6px; } 50% { height: 26px; } }
+
+/* ---------------------------------------------------------------- weather */
+#v-weather .now { display: flex; align-items: center; gap: 14px; }
+#v-weather .now .ico { font-size: 72px; }
+#v-weather .now .temp { font-size: 96px; font-weight: 200; line-height: 1; }
+#v-weather .hours { display: flex; gap: 6px; margin: 14px 0 10px; }
+#v-weather .hours div { width: 54px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 14px; color: var(--ivory-dim); }
+#v-weather .hours div b { font-size: 17px; color: var(--ivory); font-weight: 500; }
+#v-weather .hours div .i { font-size: 22px; }
+#v-weather .hours div em { font-style: normal; font-size: 12px; color: #7fc4ff; min-height: 14px; }
+#v-weather .hours.grid { display: grid; grid-template-columns: repeat(4, 66px); gap: 12px 10px; margin-top: 16px; }
+/* a view taller than the circle: scroll the whole centre, fading at the rim.
+   Shared (weather, calendar, ...) -- it was once scoped to #v-weather and the
+   calendar silently couldn't scroll. */
+.wscroll {
+  position: absolute; inset: 0; overflow-y: auto; scrollbar-width: none; touch-action: pan-y;
+  display: flex; flex-direction: column; align-items: center; padding: 96px 0 150px;
+  mask-image: linear-gradient(transparent 40px, #000 100px, #000 calc(100% - 110px), transparent calc(100% - 40px));
+}
+.wscroll::-webkit-scrollbar { display: none; }
+.wscroll > * { flex: none; }
+
+/* calendar: tappable day headings, and the day page */
+.calday {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  border: 0; background: none; color: var(--turq); padding: 14px 8px 6px; min-height: 44px;
+  font: 600 15px Inter, sans-serif; letter-spacing: .18em; text-transform: uppercase; text-align: left;
+}
+.calday small { letter-spacing: 0; text-transform: none; font-size: 15px; color: var(--ivory-dim); font-weight: 500; }
+.calday:active { color: var(--ivory); }
+.calev { width: 100%; text-align: left; border: 0; color: inherit; font: inherit; margin-bottom: 8px; }
+.calev .t span.loc { white-space: normal; }
+#v-weather .wdays { display: flex; flex-direction: column; gap: 6px; }
+#v-weather .wday {
+  display: grid; grid-template-columns: 52px 30px 40px 36px 120px 36px; gap: 8px; align-items: center;
+  border: 0; border-radius: 14px; padding: 10px 14px; background: var(--face-2); color: var(--ivory);
+  font: 500 17px Inter, sans-serif; text-align: left; min-height: 52px;
+}
+#v-weather .wday:active { background: var(--band); }
+#v-weather .wday .p { font-size: 13px; color: #7fc4ff; }
+#v-weather .wday .lo { color: var(--ivory-dim); text-align: right; font-size: 16px; }
+#v-weather .wday .hi { font-size: 16px; }
+#v-weather .wday .track { position: relative; height: 8px; border-radius: 4px; background: #ffffff10; }
+#v-weather .wday .bar { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: linear-gradient(90deg, var(--turq), var(--amber)); }
+#v-weather .wstats { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 400px; margin-top: 14px; }
+#v-weather .wstats span { background: var(--face-2); border-radius: 999px; padding: 7px 14px; font-size: 15px; }
+
+/* ---------------------------------------------------------------- timers */
+#v-timers .presets { display: grid; grid-template-columns: repeat(4, 84px); gap: 10px; margin: 14px 0; }
+#v-timers .presets button { height: 64px; border: 0; border-radius: 18px; background: var(--band); color: var(--ivory); font: 600 20px Inter, sans-serif; }
+#v-timers .presets button small { display: block; font-size: 12px; font-weight: 500; color: var(--ivory-dim); }
+#v-timers .presets button:active { background: var(--turq); color: var(--ink); }
+#v-timers .active { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 440px; }
+.tmr { position: relative; width: 120px; height: 120px; border: 0; background: transparent; color: var(--ivory); padding: 0; }
+.tmr svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.tmr circle { fill: none; stroke-width: 7; stroke-linecap: round; }
+.tmr .bg { stroke: #ffffff12; }
+.tmr .fg { stroke: var(--amber); }
+.tmr .txt { position: absolute; inset: 0; display: grid; place-content: center; font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tmr .txt small { font-size: 12px; color: var(--ivory-dim); font-weight: 500; }
+
+/* ---------------------------------------------------------------- clock */
+#v-clock svg { width: 470px; height: 470px; }
+
+/* ---------------------------------------------------------------- home assistant */
+#v-ha .list { max-height: 360px; }
+/* a light: the toggle row, plus a brightness slider when it dims */
+.lrow { border-radius: 16px; background: var(--face-2); flex: none; }
+.lrow.on { background: var(--turq-dim); }
+.lrow .row { background: transparent; }
+.lrow .row:active { background: #ffffff10; }
+.dim {
+  -webkit-appearance: none; appearance: none; display: block; width: calc(100% - 32px); margin: -2px 16px 12px;
+  height: 28px; background: transparent; touch-action: none;
+}
+.dim::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #2c3a3b, var(--amber)); }
+.dim::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 28px; height: 28px; margin-top: -10px; border-radius: 50%;
+  background: var(--ivory); box-shadow: 0 2px 8px #0008;
+}
+
+/* ---------------------------------------------------------------- overlays */
+#saver { position: absolute; inset: 0; border-radius: 50%; background: #000; display: none; place-items: center; z-index: 10; }
+#saver.shown { display: grid; }
+#saver svg { width: 640px; height: 640px; opacity: .9; }
+
+#alarm { position: absolute; inset: 0; border-radius: 50%; display: none; place-content: center; text-align: center; z-index: 20; background: radial-gradient(circle, #3a1712, #120706 70%); }
+#alarm.shown { display: grid; }
+#alarm .pulse { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 0 var(--red); animation: pulse 1.6s ease-out infinite; }
+@keyframes pulse { 0% { box-shadow: inset 0 0 0 0 #d2553fcc; } 100% { box-shadow: inset 0 0 0 120px #d2553f00; } }
+#alarm h1 { font-size: 64px; font-weight: 300; margin: 0; }
+#alarm p { font-size: 22px; color: var(--ivory-dim); margin: 8px 0 26px; }
+
+#toast { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); padding: 10px 18px; border-radius: 999px; background: #000c; font-size: 16px; opacity: 0; transition: opacity .3s; z-index: 30; pointer-events: none; white-space: nowrap; }
+#toast.shown { opacity: 1; }
+
+/* ---------------------------------------------------------------- remote view (Audible tab) */
+#remote { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: #000; display: none; z-index: 15; }
+#remote.shown { display: block; }
+#rv-img { position: absolute; left: 0; top: 0; width: 800px; height: 800px; transform-origin: 0 0; transition: transform .2s; }
+#rv-surface { position: absolute; inset: 0; touch-action: none; }
+#rv-bar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 2; }
+#rv-bar button {
+  width: 52px; height: 52px; border-radius: 50%; border: 0; font: 600 22px Inter, sans-serif;
+  background: #161b1dee; color: var(--ivory); box-shadow: 0 2px 10px #0008;
+}
+#rv-bar button:active { background: var(--turq); color: var(--ink); }
+#rv-kbd { position: absolute; left: 0; right: 0; top: 503px; display: none; z-index: 2; }
+#rv-kbd.shown { display: block; }
+#rv-kbd .kr { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
+#rv-kbd .key {
+  flex: none; width: 62px; height: 58px; border: 0; border-radius: 12px;
+  background: #2a3133; color: var(--ivory); font: 500 23px Inter, sans-serif; box-shadow: 0 2px 0 #0006;
+}
+#rv-kbd .kr:nth-child(2) .key, #rv-kbd .kr:nth-child(3) .key { width: 58px; }
+#rv-kbd .kr:nth-child(4) .key { width: 54px; font-size: 18px; }
+#rv-kbd .key.mod { background: var(--band); font-size: 18px; }
+#rv-kbd .key.wide { width: 112px !important; }
+#rv-kbd .key.on { background: var(--ivory); color: var(--ink); }
+#rv-kbd .key.down { background: var(--turq); color: var(--ink); }
+#v-audible .controls { gap: 12px; }
+#v-audible .controls .corner-btn { width: 52px; height: 52px; }
+
+/* radio dial: highlight + volume ring */
+.kfocus { outline: 3px solid var(--turq) !important; outline-offset: 3px; }
+.app-btn.kfocus { outline: none !important; box-shadow: 0 0 0 4px var(--turq), 0 0 22px #45b5aa99; color: var(--ivory); }
+#vol-ring { opacity: 0; transition: opacity .35s; }
+#vol-ring.shown { opacity: 1; }

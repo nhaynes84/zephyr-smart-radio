@@ -1,0 +1,17 @@
+[Unit]
+Description=Disarm the test DTB / DT overlay (one boot only)
+# Runs as early as / is writable. If the boot that used the test DT hangs
+# LATER, the next power-cycle boots clean on its own. If the boot hangs in
+# the kernel before userspace, this never runs -- pull the SD and the eMMC
+# boots its known-good setup.
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'E=/boot/armbianEnv.txt; if grep -qE "^(user_overlays|fdtfile)=" $E; then grep -E "^(user_overlays|fdtfile)=" $E > /root/overlay-armed-last-boot; sed -i -E "/^(user_overlays|fdtfile)=/d" $E; sync; fi'
+TimeoutStartSec=10
+
+[Install]
+WantedBy=sysinit.target

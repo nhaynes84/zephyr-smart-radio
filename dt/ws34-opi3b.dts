@@ -1,0 +1,142 @@
+// Orange Pi 3B v2.1 (RK3566, Armbian VENDOR 6.1): Waveshare 3.4" DSI LCD (C), 800x800 round.
+//
+// Uses Orange Pi's OWN display graph, unchanged. The stock DTB already wires
+//   vop vp1 -> dsi1 (dsi@fe070000) -> port@1 "dsi1_out_panel" -> raspits_panel@45 on i2c1
+// i.e. the Raspberry Pi 7" touchscreen design, on the 15-pin connector. The
+// Waveshare MCU answers at that same i2c1 0x45. Only the panel differs: the RPi
+// 7" driver hard-codes 800x480 and checks an Atmel firmware ID, so this puts a
+// generic DSI panel (no init sequence -- the Waveshare MCU inits the glass) on
+// dsi1 instead, and re-points the existing dsi1_out_panel endpoint at it.
+//
+// This adds no endpoint to dsi1: it edits the one that is there.
+//
+// Merged into the board DTB on talos with fdtoverlay and shipped whole
+// (fdtfile=rockchip/rk3566-orangepi-3b-v2.1-ws34.dtb), then the dangling
+// raspits-panel endpoint is dropped:
+//   fdtput -d <dtb> /i2c@fe5a0000/raspits-panel@45/port/endpoint remote-endpoint
+// REQUIRES driver_async_probe=... on the kernel command line (see the planes
+// note at the bottom) or the boot hangs before the initramfs.
+//
+// Timings from Waveshare's RPi driver (panel-waveshare-dsi.c, ws_panel_3_4_mode):
+//   clock 50000 kHz; h 800 / +32 fp / +6 sync / +120 bp; v 800 / +8 / +4 / +16
+//   2 lanes, RGB888. Flags differ from Waveshare's: burst, see dsi,flags.
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "rockchip,rk3566";
+
+	fragment@0 {
+		target = <&video_phy1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&dsi1_in_vp1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target = <&dsi1>;
+		__overlay__ {
+			status = "okay";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ws_panel: panel@0 {
+				status = "okay";
+				compatible = "simple-panel-dsi";
+				reg = <0>;
+				/*
+				 * VIDEO | BURST | HSE | CLOCK_NON_CONTINUOUS. Waveshare's RPi driver
+				 * uses non-burst (0x411), but on the RK3566 every non-burst mode
+				 * (0x411, 0x415 sync pulse, 0x011 continuous clock) showed each line
+				 * rotated ~66 px right, wrapped, whatever the porches: the host clocks
+				 * lines out on its own counters, ahead of VOP2's pipeline delay. The
+				 * host's internal test pattern (debugfs vpg) was aligned, which
+				 * pinned it on the VOP2 side. Burst buffers each line first, and is
+				 * what Rockchip's own DSI panels use. Verified aligned 2026-10-17.
+				 */
+				dsi,flags = <0x413>;
+				dsi,format = <0>;		/* MIPI_DSI_FMT_RGB888 */
+				dsi,lanes = <2>;
+				bpc = <8>;
+				bus-format = <0x100a>;	/* MEDIA_BUS_FMT_RGB888_1X24 */
+				prepare-delay-ms = <20>;
+				enable-delay-ms = <20>;
+
+				display-timings {
+					native-mode = <&ws_timing>;
+					ws_timing: timing0 {
+						clock-frequency = <50000000>;
+						hactive = <800>;
+						vactive = <800>;
+						/* Porches do NOT move the picture on this panel: fp98/bp54
+						 * left it exactly where fp32/bp120 put it (photos
+						 * 2026-10-16/17). Kept at Waveshare's values. */
+						hfront-porch = <32>;
+						hsync-len = <6>;
+						hback-porch = <120>;
+						vfront-porch = <8>;
+						vsync-len = <4>;
+						vback-porch = <16>;
+						hsync-active = <0>;
+						vsync-active = <0>;
+						de-active = <0>;
+						pixelclk-active = <0>;
+					};
+				};
+
+				port {
+					ws_panel_in: endpoint {
+						remote-endpoint = <&dsi1_out_panel>;
+					};
+				};
+			};
+		};
+	};
+
+	/* Re-point Orange Pi's existing dsi1 output endpoint (no new node). */
+	fragment@3 {
+		target = <&dsi1_out_panel>;
+		__overlay__ {
+			remote-endpoint = <&ws_panel_in>;
+		};
+	};
+
+	/*
+	 * Planes. The board DTB gives every VOP2 plane to vp0 (plane-mask 0x3f)
+	 * and none to vp1, which drives dsi1:
+	 *   vp1 assign plane mask: [0x0], primary plane phy id: INVALID[-1]
+	 * Split them so vp1 has a primary plane. DSI gets the real win0 windows
+	 * (the vendor driver only programs win_dly for those); HDMI, unused on
+	 * the satellite, gets the RK3566 "*1" mirror windows.
+	 *
+	 * NOT the boot hang. That was a probe deadlock: rockchip-drm is built in
+	 * and waits on panel-simple, a module only the initramfs can load. Fixed
+	 * on the kernel command line with
+	 *   driver_async_probe=rockchip-drm,rockchip-vop2,dw-mipi-dsi-rockchip,
+	 *                      inno-dsidphy,dwhdmi-rockchip
+	 * Without it, any DTB that enables this panel hangs the boot.
+	 *   ids: Cluster0=0 Cluster1=1 Esmart0=2 Esmart1=3 Smart0=4 Smart1=5
+	 */
+	fragment@4 {
+		target = <&vp0>;
+		__overlay__ {
+			rockchip,plane-mask = <0x2a>;	/* Cluster1 | Esmart1 | Smart1 */
+			rockchip,primary-plane = <5>;	/* Smart1 */
+		};
+	};
+
+	fragment@5 {
+		target = <&vp1>;
+		__overlay__ {
+			rockchip,plane-mask = <0x15>;	/* Cluster0 | Esmart0 | Smart0 */
+			rockchip,primary-plane = <4>;	/* Smart0 */
+		};
+	};
+};

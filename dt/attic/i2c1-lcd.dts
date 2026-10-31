@@ -1,0 +1,19 @@
+// Orange Pi 3B: enable I2C1 (M0), the bus wired to the 15-pin LCD/DSI connector.
+// Waveshare's DSI panels put touch (Goodix @0x14) and their panel-control MCU on
+// the RIBBON's SCL0/SDA0 -- not the pogo pins, which carry power only.
+// Schematic v2.1: LCD FPC pins -> I2C1_SCL_M0 / I2C1_SDA_M0 (shared with CSI).
+// The base DT already sets pinctrl-0 = <&i2c1_xfer>; only status is missing.
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "rockchip,rk3566";
+
+	fragment@0 {
+		target = <&i2c1>;
+		__overlay__ {
+			status = "okay";
+			clock-frequency = <100000>;
+		};
+	};
+};

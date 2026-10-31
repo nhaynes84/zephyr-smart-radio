@@ -1,0 +1,17 @@
+[Unit]
+Description=Power on the Waveshare 3.4" DSI panel MCU (I2C1 0x45)
+# Normal service, NOT in sysinit: the DSI link itself comes up in-kernel; this
+# only tells the panel's MCU to power the glass and backlight. Bounded, so a
+# missing ribbon (no ACK) fails fast instead of holding up boot.
+After=local-fs.target
+ConditionPathExists=/dev/i2c-1
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ws-panel-on 255
+ExecStop=/usr/local/sbin/ws-panel-on off
+RemainAfterExit=yes
+TimeoutStartSec=15
+
+[Install]
+WantedBy=multi-user.target

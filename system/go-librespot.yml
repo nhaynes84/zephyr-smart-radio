@@ -1,0 +1,22 @@
+# -> /var/lib/go-librespot/config.yml
+# device_auth: pair once with a code at spotify.com/pair (the UI shows it).
+# zeroconf also on, so phones on the LAN see "Satellite" in Spotify Connect.
+device_name: Satellite
+device_type: speaker
+log_level: info
+audio_backend: alsa
+audio_device: default
+bitrate: 320
+initial_volume: 60
+volume_steps: 100
+zeroconf_enabled: true
+zeroconf_port: 0
+credentials:
+  type: device_auth
+server:
+  enabled: true
+  address: 127.0.0.1
+  port: 3678
+  image_size: large
+metadata:
+  enabled: true

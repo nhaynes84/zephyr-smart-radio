@@ -1,0 +1,17 @@
+[Unit]
+Description=Keep the I2S clock running (silence into the dmix) so the amp never pops
+# The MAX98357A pops whenever its I2S clock starts or stops, i.e. every time
+# audio starts from silence. A permanent silent client holds the dmix -- and so
+# the clock -- open; dmix mixes the zeros in at no cost to what plays.
+After=sound.target
+
+[Service]
+User=sat
+Group=audio
+ExecStart=/usr/bin/aplay -q -D plug:satmix -t raw -f S16_LE -r 48000 -c 2 /dev/zero
+Restart=always
+RestartSec=2
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

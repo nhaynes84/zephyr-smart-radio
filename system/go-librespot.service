@@ -1,0 +1,16 @@
+[Unit]
+Description=Spotify Connect (go-librespot)
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+User=sat
+Group=sat
+SupplementaryGroups=audio
+StateDirectory=go-librespot
+ExecStart=/usr/local/bin/go-librespot --config_dir /var/lib/go-librespot
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

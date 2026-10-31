@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>drm test</title>
+<pre id="out">pending</pre>
+<script>
+// Does this Chromium have a working Widevine CDM? Same key-system request
+// shape the Spotify Web Playback SDK makes (audio/mp4 + webm audio).
+(async () => {
+  const out = document.getElementById("out");
+  const cfg = [{
+    initDataTypes: ["cenc"],
+    audioCapabilities: [
+      { contentType: 'audio/mp4; codecs="mp4a.40.2"', robustness: "SW_SECURE_CRYPTO" },
+      { contentType: 'audio/webm; codecs="vorbis"', robustness: "SW_SECURE_CRYPTO" },
+    ],
+  }];
+  try {
+    const access = await navigator.requestMediaKeySystemAccess("com.widevine.alpha", cfg);
+    const keys = await access.createMediaKeys();
+    out.textContent = "WIDEVINE OK " + access.keySystem + " " + JSON.stringify(access.getConfiguration().audioCapabilities) + " mediaKeys=" + !!keys;
+  } catch (e) {
+    out.textContent = "WIDEVINE FAIL " + e.name + ": " + e.message;
+  }
+  // Report back to satd, which prints it to the journal.
+  fetch("/api/log", { method: "POST", body: "drmtest: " + out.textContent }).catch(() => {});
+})();
+</script>

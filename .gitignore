@@ -1,0 +1,10 @@
+# secrets: on talos only, mode 600, never committed
+esphome/secrets.yaml
+agent/.mcp.json
+*.env
+
+# build output and caches
+esphome/.esphome/
+__pycache__/
+*.pyc
+.DS_Store

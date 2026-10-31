@@ -1,0 +1,115 @@
+// Orange Pi 3B (RK3566, Armbian VENDOR 6.1 kernel): Waveshare 3.4" DSI LCD (C), 800x800 round.
+//
+// The 15-pin LCD connector is wired to DSI_TX1 (2-lane) and its I2C to I2C1_M0
+// (schematic v2.1). Measured on the bench 2026-10-16: with the ribbon fitted,
+// I2C1 answers at 0x14 (Goodix touch) and 0x45 (Waveshare panel MCU).
+//
+// No kernel module: the panel's own MCU does the panel init, so the host only
+// streams video. This overlay uses the vendor kernel's generic
+// "simple-panel-dsi" with no init sequence; the MCU is powered on over I2C by
+// ws-panel-on (userspace), exactly the register writes Waveshare's Raspberry Pi
+// driver makes (raspberrypi/linux panel-waveshare-dsi.c).
+//
+// Timings from that driver's ws_panel_3_4_mode:
+//   clock 50000 kHz; h 800 / +32 fp / +6 sync / +120 bp; v 800 / +8 / +4 / +16
+//   2 lanes, RGB888, VIDEO | VIDEO_HSE | CLOCK_NON_CONTINUOUS
+// dsi,flags is written as a number because this is compiled on talos without
+// the kernel's dt-bindings headers: BIT(0) | BIT(4) | BIT(10) = 0x411.
+//
+// HDMI stays on video port 0 (status quo); DSI takes video port 1.
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "rockchip,rk3566";
+
+	fragment@0 {
+		target = <&video_phy1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&dsi1_in_vp1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target = <&dsi1_in_vp0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@3 {
+		target = <&route_dsi1>;
+		__overlay__ {
+			status = "okay";
+			connect = <&vp1_out_dsi1>;
+		};
+	};
+
+	fragment@4 {
+		target = <&dsi1>;
+		__overlay__ {
+			status = "okay";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ws_panel: panel@0 {
+				status = "okay";
+				compatible = "simple-panel-dsi";
+				reg = <0>;
+				dsi,flags = <0x411>;
+				dsi,format = <0>;		/* MIPI_DSI_FMT_RGB888 */
+				dsi,lanes = <2>;
+				prepare-delay-ms = <20>;
+				enable-delay-ms = <20>;
+
+				display-timings {
+					native-mode = <&ws_timing>;
+					ws_timing: timing0 {
+						clock-frequency = <50000000>;
+						hactive = <800>;
+						vactive = <800>;
+						hfront-porch = <32>;
+						hsync-len = <6>;
+						hback-porch = <120>;
+						vfront-porch = <8>;
+						vsync-len = <4>;
+						vback-porch = <16>;
+						hsync-active = <0>;
+						vsync-active = <0>;
+						de-active = <0>;
+						pixelclk-active = <0>;
+					};
+				};
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						ws_panel_in: endpoint {
+							remote-endpoint = <&dsi1_out_ws_panel>;
+						};
+					};
+				};
+			};
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@1 {
+					reg = <1>;
+					dsi1_out_ws_panel: endpoint {
+						remote-endpoint = <&ws_panel_in>;
+					};
+				};
+			};
+		};
+	};
+};

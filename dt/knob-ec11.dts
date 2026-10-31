@@ -1,0 +1,65 @@
+// Orange Pi 3B: EC11 radio-dial encoder on the 40-pin header.
+//
+//   EC11 A      -> pin 16 (GPIO4_A3)     EC11 C (middle) -> pin 20 (GND)
+//   EC11 B      -> pin 18 (GPIO4_A1)     switch -> pin 7 (GPIO4_C3) + GND (pin 25)
+//
+// The vendor kernel has no rotary-encoder driver, so each line is a gpio-keys
+// key and satd decodes the quadrature from the key edges (evdev). The pull-ups
+// MUST come from pinctrl here: libgpiod's bias flag is ignored on this kernel
+// and the pins otherwise sit at their reset pull-down.
+//
+// ⚠ Board is the v2.1 3B: pin 7 is GPIO4_C3 and pin 22 is GPIO4_A4. Pinout
+// images for the older 3B label those two differently -- confirmed by a probe.
+//
+// Applied at boot as a user overlay (armbianEnv: user_overlays=... knob-ec11).
+//   dtc -@ -I dts -O dtb -o knob-ec11.dtbo knob-ec11.dts
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "rockchip,rk3566";
+
+	fragment@0 {
+		target = <&pinctrl>;
+		__overlay__ {
+			knob {
+				knob_pins: knob-pins {
+					rockchip,pins = <4 1 0 &pcfg_pull_up>,
+							<4 3 0 &pcfg_pull_up>,
+							<4 19 0 &pcfg_pull_up>;
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			knob {
+				compatible = "gpio-keys";
+				label = "knob";
+				pinctrl-names = "default";
+				pinctrl-0 = <&knob_pins>;
+
+				knob-a {
+					label = "knob-a";
+					linux,code = <0x100>;		/* BTN_0 */
+					gpios = <&gpio4 3 1>;		/* active low */
+					debounce-interval = <1>;
+				};
+				knob-b {
+					label = "knob-b";
+					linux,code = <0x101>;		/* BTN_1 */
+					gpios = <&gpio4 1 1>;
+					debounce-interval = <1>;
+				};
+				knob-press {
+					label = "knob-press";
+					linux,code = <0x102>;		/* BTN_2 */
+					gpios = <&gpio4 19 1>;		/* GPIO4_C3, pin 7 */
+					debounce-interval = <10>;
+				};
+			};
+		};
+	};
+};

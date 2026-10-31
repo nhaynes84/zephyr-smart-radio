@@ -1,0 +1,52 @@
+# Voice half of the bullet-radio satellite: reSpeaker XVF3800 (XMOS DSP, 4 mics,
+# AEC) + its presoldered XIAO ESP32-S3 running ESPHome.
+#
+# Wake word on-device (micro_wake_word); STT/TTS via Wyoming on talos through
+# Home Assistant on argus. Replies play on the XVF3800's own amp + JST-PH
+# speaker, so the DSP has its own output as the AEC reference.
+#
+# Build/flash from talos:  ~/.venvs/esphome/bin/esphome run satellite-voice.yaml
+# Integration: github.com/formatBCE/Respeaker-XVF3800-ESPHome-integration,
+# PINNED (the project says main changes often; YAML, C++ and the XMOS firmware
+# must come from one ref).
+
+substitutions:
+  name: satellite-voice
+  friendly_name: Satellite Voice
+  respeaker_ref: e9b11374c7bd9d3ba95ce084dfd30860eb7e4bc7   # 2026-10-03: DSP route select + ASR gain
+
+packages:
+  respeaker:
+    url: https://github.com/formatBCE/Respeaker-XVF3800-ESPHome-integration
+    ref: ${respeaker_ref}
+    refresh: 1d
+    files:
+      - packages/base.yaml
+      - packages/hardware.yaml
+      - packages/voice-assistant.yaml
+      - packages/leds.yaml
+      - packages/timers-alarm.yaml
+
+# "Hey Claude": community microWakeWord model (TaterTotterson, trained with his
+# Apple Silicon trainer; manifest v2, feature_step_size 10, 62 KB). Pinned to
+# the commit that added it (2026-06-07). Appended to the integration's model
+# list -- ESPHome merges package lists by id. Pick it in HA's "Wake word"
+# select. Sensitivity uses the manifest's own cutoff (0.21); the integration's
+# sensitivity select only re-tunes its built-in models.
+micro_wake_word:
+  models:
+    - model: https://raw.githubusercontent.com/TaterTotterson/microWakeWords/0008414564ac0b4adaf7bd1cf825aa3e9642c89a/microWakeWordsV3/hey_claude.json
+      id: hey_claude
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    id: ota_esphome
+    password: !secret ota_password
