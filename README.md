@@ -4,7 +4,8 @@
 
 A bullet-radio kitchen speaker and voice satellite: a 40s Fada-style case in ivory and
 turquoise, a round 800x800 touch screen, a knob, and a Dayton PC83 music speaker. You talk to it
-and Claude answers; it plays Spotify, internet radio, Audible and phone audio.
+and Claude answers; it plays Spotify, internet radio, audiobooks (from an
+[Audiobookshelf](https://www.audiobookshelf.org/) server) and phone audio.
 
 This is one person's build, published as is: addresses and hostnames in the scripts are the
 author's defaults (override them with arguments or `/etc/satd.json`), and the Claude side runs
@@ -33,8 +34,8 @@ the reSpeaker only cancels the echo of its own speaker, not Zephyr's. The knob s
 
 | Path | What |
 |---|---|
-| `satd/` | aiohttp service on the Pi (:8080): UI backend, Spotify/radio/Audible/Bluetooth, timers, volume and ducking, wake word control, HA remote API. `audible.py` drives the Audible web player over loopback DevTools. |
-| `ui/` | Kiosk page (cage + Chromium): ring of apps, Spotify Web Playback SDK device "Zephyr", Audible remote view. |
+| `satd/` | aiohttp service on the Pi (:8080): UI backend, Spotify/radio/audiobooks/Bluetooth, timers, volume and ducking, wake word control, HA remote API. `books.py` plays audiobooks from Audiobookshelf in its own mpv and syncs progress to the server (`abs_url`, `abs_token` in `/etc/satd.json`); `audible.py` is the retired Audible web-player driver, kept for reference. |
+| `ui/` | Kiosk page (cage + Chromium): ring of apps, Spotify Web Playback SDK device "Zephyr", audiobook library (`books.js`). |
 | `touch/` | GT9271 poller -> uinput (the ribbon has no INT line). |
 | `system/` | systemd units, udev rules, `asound.conf` (EQ -> softvol -> dmix -> amp). |
 | `dt/` | Device-tree overlays: DSI panel, MAX98357A on I2S1, EC11 knob. `attic/`, `debug/` = bring-up history. |
@@ -43,7 +44,7 @@ the reSpeaker only cancels the echo of its own speaker, not Zephyr's. The knob s
 | `agent/` | Workspace of the Claude Code session: copy `CLAUDE.example.md` -> `CLAUDE.md` (spoken rules, your house) and `.mcp.example.json` -> `.mcp.json` (Home Assistant MCP, your token). Both stay out of git. Restart the session after editing either. |
 | `tools/` | `shots.sh` (screenshot every view), `spotify-login.py`, `esp-entities.py`, `ha-api.py` (runs on the Pi), `cdp.py`. |
 | `cad/` | `satellite.py` (build123d): the whole case. See `cad/README.md` for output and the vendor models it was measured from. |
-| `wakeword/` | Trained "Hey Zephyr" models (added after training). |
+| `wakeword/` | The trained "Hey Zephyr" microWakeWord model (cutoff 0.96, window 5), referenced locally by `esphome/satellite-voice.yaml`. Trained with [microWakeWord-Trainer-AppleSilicon](https://github.com/TaterTotterson/microWakeWord-Trainer-AppleSilicon). |
 
 ## Commands
 
@@ -59,8 +60,8 @@ Voice half: ESPHome device `satellite-voice`, in HA as "Satellite Voice"; it nee
 
 ## Gotchas
 
-- Deploying the kiosk stops Audible. To change satd alone, copy `satd/*.py` and `systemctl restart satd`.
-- Audible resumes after any seek; `_seek()` re-pauses a paused book.
+- To change satd alone, copy `satd/*.py` and `systemctl restart satd`; `deploy.sh` also restarts the kiosk.
+- The ring app, voice and HA still call audiobooks "Audible"; they are Audiobookshelf now.
 - go-librespot is dead for this account (Spotify refuses its audio keys); installed but disabled.
 - Spotify needs Widevine (ChromeOS CDM via widevine_fixup.py) at /usr/lib/chromium/WidevineCdm.
 

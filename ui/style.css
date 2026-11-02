@@ -256,30 +256,7 @@ button.round:active { filter: brightness(1.3); transform: scale(.95); }
 #toast { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); padding: 10px 18px; border-radius: 999px; background: #000c; font-size: 16px; opacity: 0; transition: opacity .3s; z-index: 30; pointer-events: none; white-space: nowrap; }
 #toast.shown { opacity: 1; }
 
-/* ---------------------------------------------------------------- remote view (Audible tab) */
-#remote { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: #000; display: none; z-index: 15; }
-#remote.shown { display: block; }
-#rv-img { position: absolute; left: 0; top: 0; width: 800px; height: 800px; transform-origin: 0 0; transition: transform .2s; }
-#rv-surface { position: absolute; inset: 0; touch-action: none; }
-#rv-bar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 2; }
-#rv-bar button {
-  width: 52px; height: 52px; border-radius: 50%; border: 0; font: 600 22px Inter, sans-serif;
-  background: #161b1dee; color: var(--ivory); box-shadow: 0 2px 10px #0008;
-}
-#rv-bar button:active { background: var(--turq); color: var(--ink); }
-#rv-kbd { position: absolute; left: 0; right: 0; top: 503px; display: none; z-index: 2; }
-#rv-kbd.shown { display: block; }
-#rv-kbd .kr { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
-#rv-kbd .key {
-  flex: none; width: 62px; height: 58px; border: 0; border-radius: 12px;
-  background: #2a3133; color: var(--ivory); font: 500 23px Inter, sans-serif; box-shadow: 0 2px 0 #0006;
-}
-#rv-kbd .kr:nth-child(2) .key, #rv-kbd .kr:nth-child(3) .key { width: 58px; }
-#rv-kbd .kr:nth-child(4) .key { width: 54px; font-size: 18px; }
-#rv-kbd .key.mod { background: var(--band); font-size: 18px; }
-#rv-kbd .key.wide { width: 112px !important; }
-#rv-kbd .key.on { background: var(--ivory); color: var(--ink); }
-#rv-kbd .key.down { background: var(--turq); color: var(--ink); }
+/* ---------------------------------------------------------------- books app */
 #v-audible .controls { gap: 12px; }
 #v-audible .controls .corner-btn { width: 52px; height: 52px; }
 

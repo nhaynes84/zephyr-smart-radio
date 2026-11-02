@@ -37,6 +37,8 @@ micro_wake_word:
   models:
     - model: https://raw.githubusercontent.com/TaterTotterson/microWakeWords/0008414564ac0b4adaf7bd1cf825aa3e9642c89a/microWakeWordsV3/hey_claude.json
       id: hey_claude
+    - model: ../wakeword/hey_zephyr.esphome.json
+      id: hey_zephyr
 
 wifi:
   ssid: !secret wifi_ssid

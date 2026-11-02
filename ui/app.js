@@ -40,7 +40,7 @@ const APPS = [
   { id: "spotify", name: "Spotify", icon: I.spotify },
   { id: "radio", name: "Radio", icon: I.radio },
   { id: "phone", name: "Phone audio", icon: I.phone },
-  { id: "audible", name: "Audible", icon: I.audible },
+  { id: "audible", name: "Books", icon: I.audible },
   { id: "weather", name: "Weather", icon: I.weather },
   { id: "calendar", name: "Calendar", icon: I.calendar },
   { id: "clock", name: "Clock", icon: I.clock },
@@ -214,7 +214,7 @@ RENDER.home = () => {
   else if (S.radio.playing) chips.push(`<button class="chip" data-go="radio">📻 ${esc(S.radio.station.name)}${S.radio.now ? " · " + esc(S.radio.now) : ""}</button>`);
   else if (typeof audIsPlaying === "function" && audIsPlaying()) {
     const a = AUD.st;
-    chips.push(`<button class="chip" data-go="audible">📖 ${esc(a.title || "Audible")}${a.chapter ? " · " + esc(a.chapter.title) : ""}</button>`);
+    chips.push(`<button class="chip" data-go="audible">📖 ${esc(a.title || "Books")}${a.chapter ? " · " + esc(a.chapter.title) : ""}</button>`);
   }
   else if (btIsPlaying()) { const p = S.bt.player; chips.push(`<button class="chip" data-go="phone">🎧 ${esc(p.title || p.device || "Phone audio")}${p.artist ? " · " + esc(p.artist) : ""}</button>`); }
   const ev = nextEvent();
@@ -701,7 +701,7 @@ RENDER.phone = async (fresh) => {
   const connected = b.devices.find(d => d.connected);
   v.innerHTML = `<div class="label" style="margin-top:${b.devices.length ? 40 : 0}px">Phone audio</div>
     <p style="font-size:20px;margin:12px 0 4px">${connected ? `Connected to ${esc(connected.name)}` : "No phone connected"}</p>
-    <p class="muted" style="font-size:16px;max-width:340px;margin:0 0 12px">${connected ? "Play something on your phone — Audible, podcasts, anything." : "Connect from your phone's Bluetooth settings, or tap a phone below."}</p>
+    <p class="muted" style="font-size:16px;max-width:340px;margin:0 0 12px">${connected ? "Play something on your phone — podcasts, anything." : "Connect from your phone's Bluetooth settings, or tap a phone below."}</p>
     ${b.devices.length ? `<div class="list" id="bt-devs" style="max-height:170px">${b.devices.map((d, i) => `
       <div class="row${d.connected ? " on" : ""}" style="padding-right:8px">
         <button class="t" data-i="${i}" style="border:0;background:none;color:inherit;font:inherit;text-align:left;padding:0">

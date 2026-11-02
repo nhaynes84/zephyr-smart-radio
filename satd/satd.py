@@ -38,12 +38,13 @@ from pathlib import Path
 
 from aiohttp import ClientSession, ClientTimeout, WSMsgType, web
 
-from audible import Audible
+from books import Books
 
 UI_DIR = Path(os.environ.get("SATD_UI", Path(__file__).resolve().parent.parent / "ui"))
 CONFIG_PATH = Path(os.environ.get("SATD_CONFIG", "/etc/satd.json"))
 STATE_DIR = Path(os.environ.get("SATD_STATE", "/var/lib/satd"))
 MPV_SOCK = "/run/satd/mpv.sock"
+BOOKS_SOCK = "/run/satd/mpv-books.sock"      # audiobooks get their own mpv
 RADIO_BROWSER = "https://de1.api.radio-browser.info"
 UA = "satd/0.1 (voice satellite)"
 
@@ -594,23 +595,9 @@ async def ha_service(request):
 
 # --------------------------------------------------------------------- audible
 #
-# Audible has no Linux app; its web player runs in a BACKGROUND tab of the kiosk
-# Chromium (Widevine is installed). The UI shows that tab through its "remote
-# view" (screenshots + forwarded taps/keys over the loopback DevTools port), so
-# the satellite UI never leaves the front.
-
-
-
-async def audible_tab(request):
-    """The LIBRARY tab's DevTools socket, for the UI's remote view (sign-in, fallback)."""
-    aud = request.app["audible"]
-    try:
-        await aud.ensure()
-        url = await aud.lib.eval("location.href")
-    except Exception as e:
-        return ok({"error": f"browser control unavailable: {e}"}, 503)
-    return ok({"ws": aud.lib.ws_url, "url": url,
-               "signed_in": "/ap/signin" not in url and "audible.com" in url})
+# "Audible" here is his audiobook library: Audiobookshelf on talos (books.py),
+# DRM-free copies of his Audible purchases. The old web-player driver
+# (audible.py) is retired; the routes keep their names so nothing else moved.
 
 
 async def audible_library(request):
@@ -651,7 +638,7 @@ async def audible_pause(app):
     """Another source is starting: pause Audible if it is playing."""
     aud = app["audible"]
     try:
-        if aud.player and aud.player.alive and aud.now:
+        if aud.now:
             await aud.cmd("pause")
     except Exception:
         pass
@@ -1449,7 +1436,7 @@ async def remote_audible(app, q):
     try:
         books = await aud.get_library()
     except PermissionError:
-        raise RuntimeError("Audible is signed out; sign in on the screen") from None
+        raise RuntimeError("the audiobook server rejected Zephyr; check abs_token") from None
     if not q:
         if not aud.now:
             raise LookupError("which book?")
@@ -1511,15 +1498,21 @@ async def remote_status(app):
         aud = await app["audible"].status()
     except Exception:
         aud = {}
-    if aud.get("active"):
-        out.update(state="paused" if aud.get("paused") else "playing", source="audible",
-                   title=aud.get("title"), artist=aud.get("author"), image=aud.get("cover"),
-                   position=aud.get("t"), duration=aud.get("dur"))
+    book = dict(state="paused" if aud.get("paused") else "playing", source="audible",
+                title=aud.get("title"), artist=aud.get("author"), image=aud.get("cover"),
+                position=aud.get("t"), duration=aud.get("dur"))
+    # A paused book stays loaded indefinitely: it must not hide Spotify playing
+    # (HA would show the book, and "pause" would go to it, not the music).
+    if aud.get("active") and not aud.get("paused"):
+        out.update(book)
         return out
     try:
         sp = await sp_here(app)
     except Exception:
         sp = None
+    if aud.get("active") and not (sp and sp.get("item") and sp.get("is_playing")):
+        out.update(book)
+        return out
     if sp and sp.get("item"):
         it = sp["item"]
         album = it.get("album") or {}
@@ -1631,9 +1624,10 @@ async def index(request):
 
 async def on_startup(app):
     app["http"] = ClientSession(timeout=ClientTimeout(total=8), headers={"User-Agent": UA})
-    # ⚠️ No total timeout: it applies to a websocket's whole LIFETIME, and the
-    # driver's tab connections are meant to stay open (each call has its own).
-    app["audible"] = Audible(ClientSession(timeout=ClientTimeout(total=None, sock_connect=10)))
+    # Audiobooks (Audiobookshelf on talos). Kept under the "audible" key: the
+    # ring app, voice and HA all still say Audible and mean his books.
+    app["audible"] = Books(ClientSession(timeout=ClientTimeout(total=15), headers={"User-Agent": UA}),
+                           app["books_mpv"], lambda: app["config"])
     app["timer_task"] = asyncio.create_task(timer_loop(app))
     app["knob_task"] = asyncio.create_task(app["knob"].run())
     app["volume_task"] = asyncio.create_task(volume_init(app))
@@ -1655,10 +1649,14 @@ async def on_cleanup(app):
     if app.get("remote_runner"):
         await app["remote_runner"].cleanup()
     await http(app).close()
+    try:
+        await app["audible"].close()        # save his place before going
+    except Exception:
+        pass
     await app["audible"].session.close()
-    mpv = app["mpv"]
-    if mpv.proc and mpv.proc.returncode is None:
-        mpv.proc.terminate()
+    for mpv in (app["mpv"], app["books_mpv"]):
+        if mpv.proc and mpv.proc.returncode is None:
+            mpv.proc.terminate()
 
 
 def build_app():
@@ -1666,6 +1664,7 @@ def build_app():
     app["config"] = load_config()
     app["sp_lock"] = asyncio.Lock()
     app["mpv"] = Mpv(MPV_SOCK)
+    app["books_mpv"] = Mpv(BOOKS_SOCK)
     app["radio"] = {"station": None, "last": None, "genre_cache": {}}
     app["weather"] = {"data": None, "at": 0}
     app["timers"] = {}
@@ -1699,7 +1698,6 @@ def build_app():
     r.add_get("/api/ha/rooms", ha_rooms)
     r.add_post("/api/ha/service", ha_service)
     r.add_get("/api/calendar", calendar)
-    r.add_get("/api/audible/tab", audible_tab)
     r.add_get("/api/audible/library", audible_library)
     r.add_post("/api/audible/play", audible_play)
     r.add_get("/api/audible/status", audible_status)
