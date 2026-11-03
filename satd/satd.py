@@ -1089,16 +1089,22 @@ async def duck(app, on):
     if v["undo"]:
         v["undo"].cancel()
         v["undo"] = None
-    if on and not v["ducked"]:
-        v["ducked"] = True
-        await volume_apply(app)
+    if on:
+        if not v["ducked"]:
+            v["ducked"] = True
+            await volume_apply(app)
 
+        # Armed whenever none is running, not only on the first dip: idle ->
+        # listening inside DUCK_HOLD_S cancels later() with ducked still True,
+        # and the failsafe was already cancelled by that idle (issue #1).
         async def failsafe():
             await asyncio.sleep(DUCK_MAX_S)
+            v["failsafe"] = None
             if v["ducked"]:
                 print("duck: satellite never went idle, music back up", flush=True)
                 await duck(app, False)
-        v["failsafe"] = asyncio.create_task(failsafe())
+        if not v.get("failsafe"):
+            v["failsafe"] = asyncio.create_task(failsafe())
     elif not on and v["ducked"]:
         if v.get("failsafe"):
             v["failsafe"].cancel()
