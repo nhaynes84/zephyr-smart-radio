@@ -133,6 +133,18 @@ def add_remote_calendar(name):
     print(json.dumps({k: step.get(k) for k in ("type", "step_id", "title", "reason", "errors")}))
 
 
+def add_mqtt(host, user):
+    """Point HA's MQTT integration at the broker on `host` (talos). Password on stdin."""
+    if any(e["domain"] == "mqtt" for e in rest("GET", "/api/config/config_entries/entry")):
+        print(json.dumps({"type": "already_configured"}))
+        return
+    pw = sys.stdin.read().strip()
+    flow = rest("POST", "/api/config/config_entries/flow", {"handler": "mqtt"})
+    step = rest("POST", f"/api/config/config_entries/flow/{flow['flow_id']}",
+                {"broker": host, "port": 1883, "username": user, "password": pw})
+    print(json.dumps({k: step.get(k) for k in ("type", "step_id", "title", "reason", "errors")}))
+
+
 def entities(substr):
     for s in rest("GET", "/api/states"):
         if substr in s["entity_id"]:
@@ -162,6 +174,8 @@ if __name__ == "__main__":
         clone_pipeline(sys.argv[2], sys.argv[3], sys.argv[4])
     elif cmd == "add-remote-calendar":
         add_remote_calendar(sys.argv[2])
+    elif cmd == "add-mqtt":
+        add_mqtt(sys.argv[2], sys.argv[3])
     elif cmd == "entities":
         entities(sys.argv[2])
     elif cmd == "select":

@@ -1336,7 +1336,7 @@ async def sp_device(app):
         return app["sp_dev"]
     old = app["sp_dev"]
     app["knob"].emit({"t": "sp-reconnect"})
-    for _ in range(24):
+    for _ in range(40):                      # 20 s: the page may reload to get one
         await asyncio.sleep(0.5)
         new = app["sp_dev"]
         if new and new != old and new in await sp_devices(app):

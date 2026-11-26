@@ -282,12 +282,27 @@ async function remoteOpen(id) {
 
 // Spotify drops a web player that idles for hours without telling it; satd
 // notices when it goes to play there and asks for a fresh registration.
+// disconnect/connect alone can come back "connected" yet never re-listed, and
+// only a fresh page brings it back, so reload if it isn't listed after 5 s.
 async function spReconnect() {
   if (!SP.player) { initSpotify(); return; }
   try { SP.player.disconnect(); } catch {}
   await new Promise(r => setTimeout(r, 300));
   SP.player.connect();
+  await new Promise(r => setTimeout(r, 5e3));
+  const { devices = [] } = await spWeb("me/player/devices").catch(() => ({}));
+  if (!devices.some(d => d.id === SP.deviceId)) { report("spotify still unlisted, reloading"); location.reload(); }
 }
+
+// That only covers plays satd starts. Picked from the phone's device list, a
+// dropped player just isn't there, so check Spotify's list every 10 minutes.
+setInterval(async () => {
+  if (!SP.deviceId) return;
+  try {
+    const { devices = [] } = await spWeb("me/player/devices");
+    if (!devices.some(d => d.id === SP.deviceId)) { report("spotify dropped, reconnecting"); spReconnect(); }
+  } catch {}
+}, 10 * 60e3);
 
 function spRefresh() { markLive(); if (S.view === "spotify" && !S.spotifyBrowse) RENDER.spotify(); else if (S.view === "home") RENDER.home(); }
 
@@ -363,13 +378,99 @@ RENDER.spotify = (fresh) => {
 };
 
 
-// Browse: his library, plus genre playlists from search.
+// Browse: his library, plus genre stations.
 const SP_TABS = [
   { id: "recent", name: "Recent" }, { id: "playlists", name: "Playlists" }, { id: "liked", name: "Liked" },
-  { id: "albums", name: "Albums" }, { id: "top", name: "Top" }, { id: "discover", name: "Discover" },
+  { id: "albums", name: "Albums" }, { id: "top", name: "Top" }, { id: "stations", name: "Stations" },
 ];
-const SP_GENRES = ["jazz", "chill", "classic rock", "soul", "focus", "indie", "hip hop", "country", "classical", "50s"];
-let spTab = "recent", spGenre = "jazz";
+// A station is a shuffle of tracks from its anchor artists. Spotify (since
+// 2024-11) hides its own playlists, genre categories and recommendations from
+// apps like this one, and artists no longer carry genres; `genre:` search is
+// noisy (tribute bands, orchestras). Track search by artist still works and
+// only ever returns the real thing.
+const SP_STATIONS = {
+  "Classic rock": ["The Rolling Stones", "Led Zeppelin", "The Who", "Fleetwood Mac", "Creedence Clearwater Revival", "The Doors",
+    "Pink Floyd", "Eagles", "Tom Petty and the Heartbreakers", "Jimi Hendrix", "Aerosmith", "The Kinks", "Cream", "Bad Company"],
+  "Southern rock": ["Lynyrd Skynyrd", "The Allman Brothers Band", "ZZ Top", "Marshall Tucker Band", "The Outlaws",
+    "Molly Hatchet", "38 Special", "Gov't Mule", "Blackberry Smoke", "The Black Crowes", "Drive-By Truckers"],
+  "Blues": ["B.B. King", "Muddy Waters", "Stevie Ray Vaughan", "Howlin' Wolf", "John Lee Hooker", "Albert King", "Buddy Guy",
+    "Freddie King", "Etta James", "Gary Clark Jr.", "Joe Bonamassa", "Elmore James", "Robert Cray"],
+  "Metal": ["Metallica", "Black Sabbath", "Iron Maiden", "Judas Priest", "Megadeth", "Motörhead", "Ozzy Osbourne",
+    "Pantera", "Slayer", "Dio", "Alice In Chains", "Mastodon", "Gojira"],
+  "Soul": ["Otis Redding", "Aretha Franklin", "Al Green", "Sam Cooke", "Marvin Gaye", "Bill Withers", "Stevie Wonder",
+    "Wilson Pickett", "Curtis Mayfield", "The Temptations", "Sly & The Family Stone", "Leon Bridges"],
+  "Outlaw country": ["Willie Nelson", "Waylon Jennings", "Johnny Cash", "Merle Haggard", "Townes Van Zandt", "Kris Kristofferson",
+    "Chris Stapleton", "Sturgill Simpson", "Tyler Childers", "Jason Isbell", "Hank Williams Jr.", "Steve Earle"],
+  "90s rock": ["Pearl Jam", "Soundgarden", "Nirvana", "Stone Temple Pilots", "Foo Fighters", "Red Hot Chili Peppers",
+    "Rage Against The Machine", "Smashing Pumpkins", "Tool", "Audioslave", "Temple Of The Dog", "Live"],
+  "Funk": ["James Brown", "Parliament", "Funkadelic", "The Meters", "Earth, Wind & Fire", "Kool & The Gang", "Tower Of Power",
+    "Ohio Players", "The Isley Brothers", "Rick James", "Vulfpeck", "Prince"],
+  "Jazz": ["Miles Davis", "John Coltrane", "Thelonious Monk", "Dave Brubeck Quartet", "Charles Mingus", "Herbie Hancock",
+    "Cannonball Adderley", "Bill Evans", "Art Blakey & The Jazz Messengers", "Wes Montgomery", "Chet Baker", "Duke Ellington"],
+  "Reggae": ["Bob Marley & The Wailers", "Peter Tosh", "Toots & The Maytals", "Jimmy Cliff", "Burning Spear", "Steel Pulse",
+    "Black Uhuru", "Gregory Isaacs", "Third World", "Dennis Brown", "Sublime"],
+};
+const SP_SURPRISE = "Surprise me";
+// Spotify's own mixes, top of Stations. The Web API hides Spotify-owned
+// playlists from dev apps (404, never in me/playlists), but plays them by URI.
+const SP_PINNED = [
+  { name: "Rolling Stones Radio", uri: "spotify:playlist:37i9dQZF1E4Aj7n6yoKalm" },
+  { name: "Fleetwood Mac Radio", uri: "spotify:playlist:37i9dQZF1E4tZxYcBZfDn9" },
+];
+let spTab = "recent";
+
+// ~40 tracks: a few at random from each of up to 10 anchors, studio cuts by
+// that artist only, shuffled so one artist never plays twice in a row.
+async function spStation(genre) {
+  const anchors = shuffle(SP_STATIONS[genre].slice()).slice(0, 10);
+  const norm = s => s.toLowerCase().replace(/\s*[-(\[].*$/, "").trim();   // "Song - 2013 Remaster" -> "song"
+  const bad = /\b(live|demo|remix|instrumental|karaoke|acoustic version|rehearsal)\b/i;
+  let busy = false;                                // Spotify throttles bursts (429): 4 artists at a time
+  const per = await mapLimit(anchors, 4, async name => {
+    const q = encodeURIComponent(`artist:"${name}"`);
+    // Search returns at most 10 a call now ("Invalid limit" above that): two
+    // random pages from the first ~100 reach past the obvious hits.
+    const pick = async off => (((await spWeb(`search?type=track&limit=10&offset=${off}&q=${q}`)) || {}).tracks || {}).items || [];
+    const offs = shuffle([0, 10, 20, 30, 40, 50, 60, 70, 80, 90]).slice(0, 2);
+    let items = (await Promise.all(offs.map(o => pick(o).catch(e => { busy = true; return []; })))).flat();
+    if (!items.length) items = await pick(0).catch(() => { busy = true; return []; });
+    const seen = new Set(), keep = [];
+    for (const t of shuffle(items.filter(Boolean))) {
+      if (((t.artists || [])[0] || {}).name?.toLowerCase() !== name.toLowerCase() || bad.test(t.name)) continue;   // theirs, not a feature
+      const k = norm(t.name); if (seen.has(k)) continue; seen.add(k);
+      keep.push(t.uri); if (keep.length === 4) break;
+    }
+    return keep;
+  });
+  const out = [];                                  // round-robin = no artist twice in a row
+  for (let i = 0; per.some(l => i < l.length); i++) for (const l of shuffle(per.slice())) if (l[i]) out.push(l[i]);
+  if (!out.length && busy) throw new Error("Spotify is busy, try again in a minute");
+  return out;
+}
+
+async function mapLimit(items, n, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (next < items.length) { const i = next++; out[i] = await fn(items[i]); }
+  }));
+  return out;
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+async function spAllPlaylists() {                  // me/playlists pages at 50
+  const out = [];
+  for (let off = 0; off < 500; off += 50) {
+    const j = (await spWeb(`me/playlists?limit=50&offset=${off}`)) || {};
+    out.push(...(j.items || []).filter(Boolean));
+    if (!j.next) break;
+  }
+  return out;
+}
 
 async function spLoadTab() {
   const art = (imgs) => ((imgs || []).slice(-1)[0] || {}).url || "";   // smallest image
@@ -394,13 +495,14 @@ async function spLoadTab() {
   }
   if (spTab === "top") return trackRows(((await spWeb("me/top/tracks?limit=50&time_range=medium_term")) || {}).items || []);
   if (spTab === "liked") return trackRows((((await spWeb("me/tracks?limit=50")) || {}).items || []).map(i => i.track));
-  if (spTab === "playlists") return ((((await spWeb("me/playlists?limit=50")) || {}).items) || []).filter(Boolean).map(p =>
+  if (spTab === "playlists") return (await spAllPlaylists()).map(p =>
     ({ name: p.name, sub: (p.owner && p.owner.display_name) || "", img: art(p.images), play: { context_uri: p.uri } }));
   if (spTab === "albums") return ((((await spWeb("me/albums?limit=50")) || {}).items) || []).map(({ album: a }) =>
     ({ name: a.name, sub: (a.artists || []).map(x => x.name).join(", "), img: art(a.images), play: { context_uri: a.uri } }));
-  const j = await spWeb(`search?type=playlist&limit=30&q=${encodeURIComponent(spGenre)}`);
-  return (((j && j.playlists && j.playlists.items) || []).filter(Boolean)).map(p =>
-    ({ name: p.name, sub: (p.owner && p.owner.display_name) || "", img: art(p.images), play: { context_uri: p.uri } }));
+  const names = Object.keys(SP_STATIONS);
+  return [...SP_PINNED.map(p => ({ name: p.name, sub: "Spotify radio", play: { context_uri: p.uri } })),
+    { name: SP_SURPRISE, sub: "a random station", station: SP_SURPRISE },
+    ...names.map(g => ({ name: g, sub: SP_STATIONS[g].slice(0, 3).join(", ") + "…", station: g }))];
 }
 
 async function spotifyLibrary(fresh) {
@@ -408,22 +510,19 @@ async function spotifyLibrary(fresh) {
   if (!fresh && v.dataset.mode === "library") return;
   v.dataset.mode = "library";
   const tabs = SP_TABS.map(t => `<button data-tab="${t.id}" class="${t.id === spTab ? "on" : ""}">${t.name}</button>`).join("");
-  const genres = spTab === "discover" ? `<div class="chips" id="sp-genres" style="margin-top:6px;width:400px">${SP_GENRES.map(g =>
-    `<button data-g="${esc(g)}" class="${g === spGenre ? "on" : ""}">${esc(g)}</button>`).join("")}</div>` : "";
-  v.innerHTML = `${backHead("sp-back", "Spotify", spTab === "discover" ? 30 : 60)}
-    <div class="chips" id="sp-tabs" style="margin-top:6px">${tabs}</div>${genres}
-    <div class="list" id="sp-list" style="max-height:${spTab === "discover" ? 200 : 290}px"><p class="muted">Loading…</p></div>`;
+  v.innerHTML = `${backHead("sp-back", "Spotify", 60)}
+    <div class="chips" id="sp-tabs" style="margin-top:6px">${tabs}</div>
+    <div class="list" id="sp-list" style="max-height:290px"><p class="muted">Loading…</p></div>`;
   $("#sp-back").onclick = () => {
     if (!spTrack()) return openApp("home");
     S.spotifyBrowse = false; v.dataset.mode = ""; RENDER.spotify();
   };
   $("#sp-tabs").onclick = e => { const b = e.target.closest("[data-tab]"); if (b) { spTab = b.dataset.tab; spotifyLibrary(true); } };
-  if ($("#sp-genres")) $("#sp-genres").onclick = e => { const b = e.target.closest("[data-g]"); if (b) { spGenre = b.dataset.g; spotifyLibrary(true); } };
   const tab = spTab;
   let rows;
   try { rows = await spLoadTab(); } catch (e) { $("#sp-list").innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
   if (tab !== spTab || v.dataset.mode !== "library") return;
-  const empty = { recent: "Nothing played yet.", top: "No top tracks yet — Spotify builds these over time.", liked: "No liked songs yet.", playlists: "No saved playlists.", albums: "No saved albums.", discover: "No playlists found." };
+  const empty = { recent: "Nothing played yet.", top: "No top tracks yet — Spotify builds these over time.", liked: "No liked songs yet.", playlists: "No saved playlists.", albums: "No saved albums.", stations: "" };
   $("#sp-list").innerHTML = rows.map((r, i) => `<button class="row" data-i="${i}">
       ${r.img ? `<img src="${esc(r.img)}" alt="">` : `<span class="thumb"></span>`}
       <span class="t"><b>${esc(r.name)}</b><span>${esc(r.sub)}</span></span></button>`).join("")
@@ -432,8 +531,18 @@ async function spotifyLibrary(fresh) {
     const b = e.target.closest("[data-i]"); if (!b) return;
     if (!SP.deviceId) { toast("Spotify player isn't ready"); return; }
     const r = rows[+b.dataset.i];
-    toast("Playing " + r.name);
-    try { await spWeb(`me/player/play?device_id=${SP.deviceId}`, { method: "PUT", body: r.play }); }
+    let play = r.play, label = r.name;
+    if (r.station) {
+      const g = r.station === SP_SURPRISE ? shuffle(Object.keys(SP_STATIONS))[0] : r.station;
+      label = g + " station";
+      toast("Tuning " + label + "…");
+      let uris;
+      try { uris = await spStation(g); } catch (err) { toast("Spotify: " + err.message); return; }
+      if (!uris.length) { toast("Couldn't build " + label); return; }
+      play = { uris };
+    }
+    toast("Playing " + label);
+    try { await spWeb(`me/player/play?device_id=${SP.deviceId}`, { method: "PUT", body: play }); }
     catch (err) { toast("Spotify: " + err.message); return; }
     S.spotifyBrowse = false; v.dataset.mode = "";
   };

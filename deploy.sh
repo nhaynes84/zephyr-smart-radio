@@ -59,8 +59,10 @@ systemctl enable -q ws-panel satd gt9271-touch kiosk audio-keepalive
 systemctl set-default graphical.target >/dev/null
 systemctl restart satd gt9271-touch audio-keepalive
 # go-librespot stays installed but OFF: Spotify refuses audio keys to librespot
-# clients on newer accounts (go-librespot #279/#317). Spotify plays through the
-# official Web Playback SDK in the kiosk instead.
+# clients on newer accounts (go-librespot #279/#317). Retested 2026-11-18 with
+# v0.10.7: every track refused (code 1); #279 closed "not planned", and its
+# PlayPlay fix ships as an empty stub. Spotify plays through the official Web
+# Playback SDK in the kiosk instead.
 systemctl disable -q --now go-librespot 2>/dev/null || true
 : "${GLR_CHANGED:=}"
 systemctl restart kiosk
